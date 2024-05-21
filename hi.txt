@@ -1,0 +1,7 @@
+lenguajes=python, golang, html, js, bash
+
+herramientas=git, docker, postgresql, OWASP Zap, Metasploit
+
+Sistemas operativos=linux(archlinux, redhat, debian), openbsd
+
+Otros=postgresql, nodejs, raspberry Pi4
