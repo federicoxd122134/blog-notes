@@ -56,4 +56,4 @@ The first step is to install Pi OS on a microSD card. You can use the same SD ca
 * github.com/AshyIsMe/openbsd-rpi4
 * gist.github.com/astreknet/8e177cfb2a0900efa385e6062ae8f7a7
 
-# set up chrony history update
+## set up chrony history update
