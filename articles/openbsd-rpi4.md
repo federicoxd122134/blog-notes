@@ -6,54 +6,93 @@ image: '~/assets/images/openbsd-rpi.png'
 tags: [linux]
 ---
 
-Installing OpenBSD on a Raspberry Pi 4 has been a challenge for me, specifically with respect to setting up the EFI boot partition. U-Boot is not working as of 05/27/2024, and although most people advise using EDK II, information about how to install it is quite outdated. This document tries to describe how to install OpenBSD on an RPi4 in 2024. If you have any questions and/or want to contribute, you can contact me through any of the social media that appear in this blog. All references can be found at the end of the document in case you need them. Let's start!
 
-## Ingredients
+Vamos a usar `wget` para descargar OpenBSD. Primero, asegúrate de tener `wget` instalado. Si no lo tienes, instálalo con:
+```sh
+sudo apt-get install wget   # Para Debian/Ubuntu
+sudo yum install wget       # Para CentOS/RHEL
+sudo pacman -S wget         # Para Arch Linux
+```
 
-* 1 Raspberry Pi4
-* 1 Micro SD card
-* 1 USB drive
-* HDMI cable
-* Keyboard & mouse
-* Operating system running GNU/Linux or similar
+Ahora, descargamos la imagen de OpenBSD, que al momento de escribir éste artículo se encuentra en la versión 7.5:
+```sh
+wget https://cdn.openbsd.org/pub/OpenBSD/7.5/arm64/install75.img
+```
 
-## Preparation
+Por último, verificamos la instalación (puedes saltarte éste paso si lo deseas)
+```sh
+wget https://cdn.openbsd.org/pub/OpenBSD/7.5/arm64/SHA256
+sha256sum -c --ignore-mising SHA256
+```
+Si el output es `install75.img: OK`, entonces no ha habido ningún error.
 
-The first step is to install Pi OS on a microSD card. You can use the same SD card that we will use for installing OpenBSD, but you can also use another if you want to keep Pi OS, which is really useful.
+---
 
-1. Install Pi OS on a microSD card
-2. Update Pi OS
-3. Set the EEPROM release
-4. Update the EEPROM & reboot
-5. Set the boot order
+Usaremos la versión del bootloader EDKII compilada para RPi4 (al momento de escribir éste artículo se encuentra en la versión 1.37). La descargaremos de la siguiente manera:
+```sh
+wget https://github.com/pftf/RPi4/releases/download/v1.37/RPi4_UEFI_Firmware_v1.37.zip
+```
 
-## Installation
+---
 
-1. Get the EDK II Bootloader
-2. Get the OpenBSD arm image
-3. Erase the sd card and the USB drive
-4. Copy the install image to the USB drive
-5. Replace the boot partition on the USB drive
+Ahora copiaremos la imágen de OpenBSD 7.5 en el pendrive:
+```sh
+sudo dd if=install75.img of=/dev/sdX bs=1M status=progress
+```
 
-## Installing OpenBSD on the SD card
+Donde /dev/sdX es el archivo que hace referencia al pendrive. Hay que tener **extremo cuidado** con la letra que se elige, ya que `dd` sobreescribirá el dispositivo. Usa `lsblk` para comprobar que se ha elegido el archivo correcto.
 
-1. Install OpenBSD on the SD card
-2. Change the console on the new system
-3. Replace the firmware on the new system
+Además, borraremos los datos de la tarjeta microSD en la que se instalará OpenBSD. Como dije anteriormente, tener mucho cuidado con el archivo del dispositivo:
+```sh
+sudo dd if=/dev/zero of=/dev/sdX bs=1M status=progress
+```
 
-## Post installation
+---
+Ahora reemplazaremos la partición de boot con U-Boot en el pendrive por EDK II. Para ello primero montamos la partición de boot:
+```sh
+* la monta *
+```
 
-1. Modify RAM and device table settings
-2. Change the boot order in the firmware
+Luego eliminamos todos los archivos **excepto** la carpeta `efi`. Ésto lo haremos moviendo la carpeta a /tmp y eliminamos todos los archivos en el punto de montaje. Luego movemos la carpeta efi a su directorio original.
 
-## Closing remarks
+```sh
+sudo mv /mnt/efi /tmp
+sudo rm -fr /mnt/*
+sudo mv /tmp/efi /mnt
+```
 
-## References
+Por último extraemos los contenidos del archivo zip que contiene el EDK II en el directorio montado. Por último desmontamos el dispositivo:
+```sh
+sudo unzip -x /tmp/UEFI-1.37.zip -d /mnt
+sudo umount /mnt
+```
 
-* openbsdhandbook.com
-* mtsapv.com/rpi4obsd
-* undeadly.org/cgi?action=article&sid=20170409123528
-* github.com/AshyIsMe/openbsd-rpi4
-* gist.github.com/astreknet/8e177cfb2a0900efa385e6062ae8f7a7
+---
+---
+---
 
-## set up chrony history update
+Ésta es la mejor parte, la instalación de OpenBSD. Primero conectamos el pendrive con el instalador, un teclado, el cable HDMI y un cable Ethernet. Ya conectado todo encendemos la raspeberry pi4. Cuando aparezca la imagen de raspberry, presiona la tecla `<esc>`. Ésto hará que el bootloader ingrese a una pantalla similar a la BIOS. Puede tardar mucho o poco dependiendo los dispositivos utilizados, así que hay que estar atentos.
+
+Conectamos la tarjeta microSD en la que instalaremos OpenBSD. Hacerlo de esta forma nos garantiza que el proceso de arranque comience desde el dispositivo que tiene el firmware EDK II.
+
+En la pantalla del BIOS, seleccionamos la opción `Boot Manager` y luego el pendrive que contiene la imágen de instalación.
+
+---
+Ahora realizaremos la instalación de OpenBSD en la microSD. Al iniciar, nos encontraremos con un prompt y elegiremos la opción de `install`. El proceso de instalación es bastante sencillo. Hay 2 problemas que pueden surgir:
+
+* Tener cuidado con los discos. Revisa con detenimiento el disco donde se va a instalar el sistema operativo para no sobreescribir el pendrive que se está utilizando.
+* Si hay un error al seleccionar repositorios, mi solución fue cambiar la cdn de donde se descargarán los paquetes.
+
+Al final de la instalación, nos encontraremos con éste prompt. Elegiremos la opción `(S)hell`:
+```txt
+Exit to (S)hell, (H)alt or (R)eboot?
+```
+
+Ahora ejecutamos el siguiente comando para apagar la raspberry pi4:
+```sh
+halt -p
+```
+
+---
+
+Debido a que hacer la copia del bootloader desde la raspberry no me funcionó, la realicé desde la PC.
